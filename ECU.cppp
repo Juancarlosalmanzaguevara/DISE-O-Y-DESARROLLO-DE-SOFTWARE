@@ -1,0 +1,178 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+enum class ECUState {
+    INIT,
+    SELF_TEST,
+    OPERATIONAL,
+    DEGRADED,
+    SAFE_STATE,
+    SHUTDOWN
+};
+
+//Validacion de los rangos fisicos
+bool validateSpeed(double value) {
+    return value >= 0.0 && value <= 250.0;
+}
+
+bool validateRPM(int value) {
+    return value >= 0 && value <= 8000;
+}
+
+bool validateTemperature(double value) {
+    return value >= -40.0 && value <= 150.0;
+}
+
+bool validateThrottle(double value) {
+    return value >= 0.0 && value <= 100.0;
+}
+
+bool validateVoltage(double value) {
+    return value >= 9.0 && value <= 16.0;
+}
+
+//iniicio
+int main() {
+    ECUState state = ECUState::INIT;
+    state = ECUState::SELF_TEST; //pasa a autoprueba
+
+    double speed = 0.0, temperature = 25.0, throttle = 0.0, voltage = 13.8;     // Variables principales
+    int rpm = 0;
+
+    bool speedValid = true, rpmValid = true, tempValid = true, throttleValid = true, voltValid = true; //validacion
+
+    bool warningCondition = false; //opciones
+    bool criticalCondition = false;
+    string condicionDetectada = "Ninguna (Operacion Normal)";
+
+    int opcion = 0;
+
+    while (opcion != 4) {
+        cout << "\n1.Ingresa valores de las senales\n";
+        cout << "2. Mostrar estado del sistema\n";
+        cout << "3. Reiniciar sistema\n";
+        cout << "4. Salir\n";
+        cout << "Selecciona una opcion:";
+        cin >> opcion;
+
+        if (opcion == 1) { //manera manual
+            cout << "Introduce valor de velocidad km/h:";
+            cin >> speed;
+            cout << "Introduce valor de RPM:";
+            cin >> rpm;
+            cout << "Introduce valor de temperatura C:";
+            cin >> temperature;
+            cout << "Introduce valor de acelerador %:";
+            cin >> throttle;
+            cout << "Introduce valor de voltaje V:";
+            cin >> voltage;
+
+            speedValid = validateSpeed(speed); //señales fisicas
+            rpmValid = validateRPM(rpm);
+            tempValid = validateTemperature(temperature);
+            throttleValid = validateThrottle(throttle);
+            voltValid = validateVoltage(voltage);
+
+            warningCondition = false;
+            criticalCondition = false;
+            condicionDetectada = "";
+
+            if (tempValid && temperature >= 100.0 && temperature < 110.0) {  //validacion
+                warningCondition = true;
+                condicionDetectada += "Temperatura alta. ";
+            }
+            if (rpmValid && rpm > 6000 && rpm <= 7000) {
+                warningCondition = true;
+                condicionDetectada += "RPM altas. ";
+            }
+            if (voltValid && voltage >= 11.0 && voltage < 12.0) {
+                warningCondition = true;
+                condicionDetectada += "Voltaje bajo. ";
+            }
+
+            if (tempValid && temperature >= 110.0) {
+                criticalCondition = true;
+                condicionDetectada += "Temperatura critica";
+            }
+            if (rpmValid && rpm > 7000) {
+                criticalCondition = true;
+                condicionDetectada += "RPM criticas";
+            }
+            if (voltValid && voltage < 11.0) {
+                criticalCondition = true;
+                condicionDetectada += "Voltaje critico.";
+            }
+
+            // Validación de coherencia
+            bool inconsistentMotion = (speed > 0.0 && rpm == 0);
+            bool inconsistentThrottle = (throttle > 80.0 && rpm < 500);
+
+            if (inconsistentMotion || inconsistentThrottle) {
+                warningCondition = true;
+                condicionDetectada += "Inconsistencia de movimiento/acelerador. ";
+            }
+
+            // Lógica de decisión de estado
+            if (criticalCondition) {
+                state = ECUState::SAFE_STATE;
+            } else if (warningCondition) {
+                state = ECUState::DEGRADED;
+            } else {
+                state = ECUState::OPERATIONAL;
+                condicionDetectada = "Ninguna";
+            }
+
+        } else if (opcion == 2) {
+            cout << "\nESTADO:\n\n";
+
+            string estadoStr = "";
+            if (state == ECUState::INIT) estadoStr = "INIT";
+            else if (state == ECUState::SELF_TEST) estadoStr = "SELF_TEST";
+            else if (state == ECUState::OPERATIONAL) estadoStr = "OPERATIONAL";
+            else if (state == ECUState::DEGRADED) estadoStr = "DEGRADED";
+            else if (state == ECUState::SAFE_STATE) estadoStr = "SAFE_STATE";
+            else if (state == ECUState::SHUTDOWN) estadoStr = "SHUTDOWN";
+
+            cout << "Estado Control ECU: " << estadoStr << "\n\n";
+
+            cout << "Velocidad:\t" << speed << " km/h\t" << (speedValid ? "valida" : "invalida") << "\n";
+            cout << "RPM:\t\t" << rpm << " rpm\t" << (rpmValid ? "valida" : "invalida") << "\n";
+            cout << "Temperatura:\t" << temperature << " C\t" << (tempValid ? "valida" : "invalida") << "\n";
+            cout << "Acelerador:\t" << throttle << " %\t" << (throttleValid ? "valida" : "invalida") << "\n";
+            cout << "Voltaje:\t" << voltage << " V\t" << (voltValid ? "valida" : "invalida") << "\n";
+
+            cout << "\nCondicion detectada:\n";
+            cout << condicionDetectada << "\n";
+
+            cout << "\nDecision:\n";
+            if (state == ECUState::SAFE_STATE) {
+                cout << "Safe State\n";
+            } else if (state == ECUState::DEGRADED) {
+                cout << "Operacion degradada\n";
+            } else {
+                cout << "Operacion normal\n";
+            }
+
+        } else if (opcion == 3) { //REINICIO
+            state = ECUState::INIT;
+            speed = 0.0; rpm = 0; temperature = 25.0; throttle = 0.0; voltage = 13.8;
+            speedValid = rpmValid = tempValid = throttleValid = voltValid = true;
+            warningCondition = false; criticalCondition = false;
+            condicionDetectada = "Ninguna (Operacion Normal)";
+
+            state = ECUState::SELF_TEST;
+            cout << "\nSistema reiniciado.\n";
+
+        } else if (opcion == 4) { //para salir
+            state = ECUState::SHUTDOWN;
+            cout << "\nGracias.\n";
+
+        } else {
+            cout << "\nOpcion no valida, intente de nuevo.\n";
+        }
+    }
+
+    return 0;
+}
